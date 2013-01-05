@@ -20,7 +20,9 @@ ESC all_escs[1];
 #define DOWN_BUTTON (PINA_byte.b3)
 #define UP_BUTTON (PINA_byte.b7)
 
-#define DRIVE_EEPROM_LOC ((const uint8_t*)0)
+#define SET_ENABLE_PORT (PORTB_byte.b2)
+#define DOWN_BUTTON_PORT (PORTA_byte.b3)
+#define UP_BUTTON_PORT (PORTA_byte.b7)
 
 uint8_t EEMEM drive_storage = STOP_SPEED;
 
@@ -78,6 +80,12 @@ int main(void) {
     all_escs[0].pin = PB0;
     PORTA_byte.val = 0;
     PORTB_byte.val = 0;
+    
+    // turn on pullups for buttons
+    SET_ENABLE_PORT = 1;
+    UP_BUTTON_PORT = 1;
+    DOWN_BUTTON_PORT = 1;
+    
     setup_leds();
     red(1);
     green(1);
@@ -92,6 +100,15 @@ int main(void) {
     red(1);
     static uint8_t drive;
     drive = eeprom_read_byte(&drive_storage);
+    if (drive == 255) {
+        drive = STOP_SPEED;
+    }
+    if (drive > MAX_SPEED) {
+        drive = MAX_SPEED;
+    }
+    if (drive < STOP_SPEED) {
+        drive = STOP_SPEED;
+    }
     static uint8_t count = 0;
     for (;;) {
         ++count;
@@ -102,12 +119,17 @@ int main(void) {
         if (enable_button.state) {
             if (button_pressed(&down_button) && drive > STOP_SPEED) {
                 drive--;
+                eeprom_write_byte(&drive_storage, drive);
             }
             if (button_pressed(&up_button) && drive < MAX_SPEED) {
                 drive++;
+                eeprom_write_byte(&drive_storage, drive);
             }
             green((count >> 5) & 0x01); // flash green to show we are in set mode
             red(drive == STOP_SPEED || drive == MAX_SPEED);
+        } else {
+            red((count >> 5) & 0x01);
+            green(0);
         }
         all_escs[0].drive = drive;
     }
